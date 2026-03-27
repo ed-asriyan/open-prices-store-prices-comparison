@@ -3,7 +3,7 @@ const OFF_WORLD_API = 'https://world.openfoodfacts.org/api/v3';
 
 const QUEUE_INTERVAL_MS = 1000; // minimum ms between consecutive calls per queue
 const MAX_RETRIES = 3;
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 const CACHE_PREFIX = 'off_cache:';
 
 // ---------------------------------------------------------------------------
