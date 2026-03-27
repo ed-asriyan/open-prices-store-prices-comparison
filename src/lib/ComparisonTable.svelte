@@ -18,6 +18,37 @@
     if (priceData.currency === 'EUR') return `€${val}`;
     return `${val} ${priceData.currency}`;
   }
+
+  // Compute per-store average price over intersection rows only.
+  // Returns { storeId -> avgPrice } and the highest average (most expensive store).
+  $: storeAvgPrices = (() => {
+    const intersectionRows = (comparisonData ?? []).filter(r => r.inAllStores);
+    if (intersectionRows.length === 0 || selectedStores.length < 2) return null;
+
+    const totals = {};
+    const counts = {};
+    for (const store of selectedStores) {
+      totals[store.id] = 0;
+      counts[store.id] = 0;
+    }
+    for (const row of intersectionRows) {
+      for (const store of selectedStores) {
+        const p = row.prices[store.id];
+        if (p) {
+          totals[store.id] += parseFloat(p.price);
+          counts[store.id]++;
+        }
+      }
+    }
+
+    const avgs = {};
+    for (const store of selectedStores) {
+      avgs[store.id] = counts[store.id] > 0 ? totals[store.id] / counts[store.id] : null;
+    }
+
+    const maxAvg = Math.max(...Object.values(avgs).filter(v => v !== null));
+    return { avgs, maxAvg };
+  })();
 </script>
 
 {#if comparisonData && comparisonData.length > 0}
@@ -36,10 +67,10 @@
       {/if}
     </div>
 
-    <div class="overflow-x-auto">
+    <div class="overflow-x-auto max-h-[70vh] overflow-y-auto">
       <table class="w-full text-left text-sm whitespace-nowrap">
         <thead>
-          <tr class="bg-slate-50 border-b border-slate-200">
+          <tr class="bg-slate-50 border-b border-slate-200 sticky top-0 z-20">
             <th class="md:sticky left-0 z-10 bg-slate-50 px-4 md:px-6 py-4 font-semibold text-slate-700 border-r border-slate-200 w-48 md:w-80 shadow-[4px_0_12px_rgba(0,0,0,0.02)]">
               Product
             </th>
@@ -123,6 +154,40 @@
             </tr>
           {/each}
         </tbody>
+
+        {#if storeAvgPrices}
+          <tfoot>
+            <tr class="border-t-2 border-slate-200 bg-slate-50 sticky bottom-0 z-20">
+              <td class="md:sticky left-0 z-30 bg-slate-50 px-4 md:px-6 py-4 border-r border-slate-200 shadow-[4px_0_12px_rgba(0,0,0,0.02)]">
+                <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">Avg. savings vs priciest</span>
+              </td>
+              {#each selectedStores as store (store.id)}
+                {@const avg = storeAvgPrices.avgs[store.id]}
+                {@const diff = avg !== null ? storeAvgPrices.maxAvg - avg : null}
+                {@const pct = diff !== null && storeAvgPrices.maxAvg > 0 ? (diff / storeAvgPrices.maxAvg) * 100 : null}
+                {@const isCheapest = avg !== null && avg === Math.min(...Object.values(storeAvgPrices.avgs).filter(v => v !== null))}
+                {@const isMostExpensive = avg !== null && avg === storeAvgPrices.maxAvg}
+                <td class="px-6 py-4">
+                  {#if pct !== null}
+                    <div class="flex flex-col gap-0.5">
+                      <span class="text-base font-semibold {isCheapest ? 'text-green-700' : isMostExpensive ? 'text-slate-400' : 'text-slate-700'}">
+                        {isMostExpensive ? '—' : `-${pct.toFixed(1)}%`}
+                      </span>
+                      {#if !isMostExpensive}
+                        <span class="text-xs text-slate-400">cheaper on avg</span>
+                      {:else}
+                        <span class="text-xs text-slate-400">most expensive</span>
+                      {/if}
+                    </div>
+                  {:else}
+                    <span class="text-slate-300 text-lg font-light">—</span>
+                  {/if}
+                </td>
+              {/each}
+            </tr>
+          </tfoot>
+        {/if}
+
       </table>
     </div>
   </section>
