@@ -12,6 +12,27 @@
   let totalExpected = 0;
   let status = { isLoading: false, text: '', error: null };
 
+  const LS_KEY = 'selected_stores';
+
+  function saveStoresToLocalStorage(stores) {
+    try {
+      if (stores.length > 0) {
+        localStorage.setItem(LS_KEY, JSON.stringify(stores.map(s => s.id)));
+      } else {
+        localStorage.removeItem(LS_KEY);
+      }
+    } catch {}
+  }
+
+  function loadStoreIdsFromLocalStorage() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  }
+
   function syncUrl(stores) {
     const url = new URL(window.location.href);
     if (stores.length > 0) {
@@ -23,17 +44,22 @@
   }
 
   onMount(async () => {
-    const ids = new URLSearchParams(window.location.search).get('stores');
-    if (!ids) return;
-    const storeIds = ids.split(',').filter(Boolean);
+    const urlParam = new URLSearchParams(window.location.search).get('stores');
+    const storeIds = urlParam
+      ? urlParam.split(',').filter(Boolean)      // URL takes priority
+      : loadStoreIdsFromLocalStorage();           // fall back to localStorage
+
     if (storeIds.length === 0) return;
-    status = { isLoading: true, text: 'Restoring stores from link…', error: null };
+
+    status = { isLoading: true, text: 'Restoring stores…', error: null };
     try {
       selectedStores = await lookupStoresByIds(storeIds);
+      syncUrl(selectedStores);
+      saveStoresToLocalStorage(selectedStores);
       status = { isLoading: false, text: '', error: null };
     } catch (err) {
       console.error(err);
-      status = { isLoading: false, text: '', error: 'Could not restore stores from the shared link.' };
+      status = { isLoading: false, text: '', error: 'Could not restore stores from the saved selection.' };
     }
   });
 
@@ -42,6 +68,7 @@
     if (!selectedStores.find(s => s.id === store.id)) {
       selectedStores = [...selectedStores, store];
       syncUrl(selectedStores);
+      saveStoresToLocalStorage(selectedStores);
     }
     comparisonData = null;
   }
@@ -50,6 +77,7 @@
     const storeId = event.detail;
     selectedStores = selectedStores.filter(s => s.id !== storeId);
     syncUrl(selectedStores);
+    saveStoresToLocalStorage(selectedStores);
     comparisonData = null;
   }
 
