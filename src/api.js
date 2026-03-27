@@ -3,6 +3,39 @@ const OFF_WORLD_API = 'https://world.openfoodfacts.org/api/v3';
 
 const QUEUE_INTERVAL_MS = 1000; // minimum ms between consecutive calls per queue
 const MAX_RETRIES = 3;
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_PREFIX = 'off_cache:';
+
+// ---------------------------------------------------------------------------
+// Simple localStorage cache with TTL
+// ---------------------------------------------------------------------------
+
+function cacheGet(key) {
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + key);
+    if (!raw) return null;
+    const entry = JSON.parse(raw);
+    if (Date.now() > entry.expiresAt) {
+      localStorage.removeItem(CACHE_PREFIX + key);
+      return null;
+    }
+    return entry.data;
+  } catch {
+    return null;
+  }
+}
+
+function cacheSet(key, data) {
+  try {
+    localStorage.setItem(
+      CACHE_PREFIX + key,
+      JSON.stringify({ data, expiresAt: Date.now() + CACHE_TTL_MS })
+    );
+  } catch (e) {
+    // Ignore quota errors — cache is best-effort
+    console.warn('Cache write failed:', e);
+  }
+}
 
 class RateLimitQueue {
   constructor(interval = QUEUE_INTERVAL_MS) {
@@ -113,6 +146,10 @@ export async function lookupStoresByIds(storeIds) {
  * @returns {Promise<Array>}
  */
 export async function fetchStorePrices(store) {
+  const cacheKey = `prices:${store.osm_type}:${store.osm_id}`;
+  const cached = cacheGet(cacheKey);
+  if (cached) return cached;
+
   return pricesQueue.enqueue(async () => {
     const res = await fetchWithRetry(
       `${OFF_PRICES_API}/prices?location_osm_id=${store.osm_id}&location_osm_type=${store.osm_type}&size=1000`
@@ -121,8 +158,10 @@ export async function fetchStorePrices(store) {
     const data = await res.json();
     if (!data.items || data.items.length === 0) {
       console.warn(`Store ${store.name} has no prices in the database.`);
+      cacheSet(cacheKey, []);
       return [];
     }
+    cacheSet(cacheKey, data.items);
     return data.items;
   });
 }
@@ -139,14 +178,25 @@ export async function fetchProductDetailsBatch(barcodes, onProgress, onProduct) 
   const total = barcodes.length;
   let completed = 0;
 
-  const promises = barcodes.map(barcode =>
-    productQueue.enqueue(async () => {
+  const promises = barcodes.map(barcode => {
+    const cacheKey = `product:${barcode}`;
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      onProduct(barcode, cached);
+      completed++;
+      onProgress(completed, total);
+      return Promise.resolve();
+    }
+
+    return productQueue.enqueue(async () => {
       try {
         const res = await fetchWithRetry(
           `${OFF_WORLD_API}/product/${barcode}.json?fields=product_name,image_small_url,brands`
         );
         const product = res.ok ? (await res.json()).product ?? null : null;
-        onProduct(barcode, product ?? { product_name: 'Unknown Product (Name not in DB)' });
+        const resolved = product ?? { product_name: 'Unknown Product (Name not in DB)' };
+        cacheSet(cacheKey, resolved);
+        onProduct(barcode, resolved);
       } catch (err) {
         console.warn(`Failed to fetch product ${barcode}`, err);
         onProduct(barcode, { product_name: 'Unknown Product (Name not in DB)' });
@@ -154,8 +204,8 @@ export async function fetchProductDetailsBatch(barcodes, onProgress, onProduct) 
         completed++;
         onProgress(completed, total);
       }
-    })
-  );
+    });
+  });
 
   await Promise.all(promises);
 }
