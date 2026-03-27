@@ -1,8 +1,11 @@
 <script>
-  import { Store, CheckCircle2, TrendingDown, ExternalLink } from 'lucide-svelte';
+  import { fly } from 'svelte/transition';
+  import { Store, CheckCircle2, TrendingDown, ExternalLink, Loader2 } from 'lucide-svelte';
 
   export let comparisonData = [];
   export let selectedStores = [];
+  export let totalExpected = 0;
+  export let isLoading = false;
 
   function getMinPrice(prices) {
     return Math.min(...Object.values(prices).map(p => parseFloat(p.price)));
@@ -21,8 +24,15 @@
     <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
       <h2 class="font-semibold text-slate-900 flex items-center gap-2">
         <CheckCircle2 class="w-5 h-5 text-green-500" />
-        Found {comparisonData.length} common items
+        {#if isLoading && totalExpected > 0}
+          Loaded {comparisonData.length} of {totalExpected} common items
+        {:else}
+          Found {comparisonData.length} common items
+        {/if}
       </h2>
+      {#if isLoading}
+        <Loader2 class="w-4 h-4 animate-spin text-slate-400" />
+      {/if}
     </div>
 
     <div class="overflow-x-auto">
@@ -47,7 +57,7 @@
         <tbody class="divide-y divide-slate-100">
           {#each comparisonData as row (row.barcode)}
             {@const minPrice = getMinPrice(row.prices)}
-            <tr class="hover:bg-slate-50/50 transition-colors">
+            <tr in:fly={{ y: 10, duration: 180 }} class="hover:bg-slate-50/50 transition-colors">
               <td class="sticky left-0 z-10 bg-white border-r border-slate-200 px-6 py-4 shadow-[4px_0_12px_rgba(0,0,0,0.02)]">
                 <div class="flex items-center gap-4">
                   {#if row.product.image_small_url}

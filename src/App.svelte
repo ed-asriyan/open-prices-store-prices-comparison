@@ -8,6 +8,7 @@
 
   let selectedStores = [];
   let comparisonData = null;
+  let totalExpected = 0;
   let status = { isLoading: false, text: '', error: null };
 
   function addStore(event) {
@@ -29,13 +30,13 @@
 
     status = { isLoading: true, text: 'Fetching store price datasets...', error: null };
     comparisonData = null;
+    totalExpected = 0;
 
     try {
-      // 1. Fetch prices for all selected stores concurrently
+      // 1. Fetch prices for all selected stores (queued, each goes through rate-limit queue)
       const storesData = await Promise.all(
         selectedStores.map(async store => {
           const prices = await fetchStorePrices(store);
-          // Build a barcode → price-object map, keeping the first (most recent) entry
           const priceMap = {};
           prices.forEach(p => {
             if (!priceMap[p.product_code]) priceMap[p.product_code] = p;
@@ -61,8 +62,20 @@
         return;
       }
 
-      // 3. Fetch product details for intersecting barcodes
-      const productDetailsMap = await fetchProductDetailsBatch(
+      // 3. Build price lookup per barcode upfront
+      const pricesByBarcode = {};
+      intersectingBarcodes.forEach(barcode => {
+        const prices = {};
+        storesData.forEach(s => { prices[s.storeId] = s.priceMap[barcode]; });
+        pricesByBarcode[barcode] = prices;
+      });
+
+      // 4. Stream results – initialize empty array so table renders immediately
+      totalExpected = intersectingBarcodes.length;
+      comparisonData = [];
+
+      // 5. Fetch product details progressively; UI updates after each item
+      await fetchProductDetailsBatch(
         intersectingBarcodes,
         (current, total) => {
           status = {
@@ -70,21 +83,14 @@
             text: `Fetching product details (${current}/${total})...`,
             error: null,
           };
+        },
+        (barcode, product) => {
+          comparisonData = [
+            ...comparisonData,
+            { barcode, product, prices: pricesByBarcode[barcode] },
+          ];
         }
       );
-
-      // 4. Build final comparison matrix
-      comparisonData = intersectingBarcodes.map(barcode => {
-        const prices = {};
-        storesData.forEach(s => {
-          prices[s.storeId] = s.priceMap[barcode];
-        });
-        return {
-          barcode,
-          product: productDetailsMap[barcode] || { product_name: 'Unknown Product (Name not in DB)' },
-          prices,
-        };
-      });
 
       status = { isLoading: false, text: '', error: null };
     } catch (err) {
@@ -144,7 +150,7 @@
     <StatusMessage {status} />
 
     <!-- Results Table -->
-    <ComparisonTable {comparisonData} {selectedStores} />
+    <ComparisonTable {comparisonData} {selectedStores} {totalExpected} isLoading={status.isLoading} />
 
   </div>
 </div>
