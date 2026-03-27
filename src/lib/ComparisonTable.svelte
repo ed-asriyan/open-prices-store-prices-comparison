@@ -39,7 +39,7 @@
       <table class="w-full text-left text-sm whitespace-nowrap">
         <thead>
           <tr class="bg-slate-50 border-b border-slate-200">
-            <th class="sticky left-0 z-10 bg-slate-50 px-6 py-4 font-semibold text-slate-700 border-r border-slate-200 w-80 shadow-[4px_0_12px_rgba(0,0,0,0.02)]">
+            <th class="md:sticky left-0 z-10 bg-slate-50 px-4 md:px-6 py-4 font-semibold text-slate-700 border-r border-slate-200 w-48 md:w-80 shadow-[4px_0_12px_rgba(0,0,0,0.02)]">
               Product
             </th>
             {#each selectedStores as store (store.id)}
@@ -58,7 +58,7 @@
           {#each comparisonData as row (row.barcode)}
             {@const minPrice = getMinPrice(row.prices)}
             <tr in:fly={{ y: 10, duration: 180 }} class="hover:bg-slate-50/50 transition-colors">
-              <td class="sticky left-0 z-10 bg-white border-r border-slate-200 px-6 py-4 shadow-[4px_0_12px_rgba(0,0,0,0.02)]">
+              <td class="md:sticky left-0 z-10 bg-white border-r border-slate-200 px-4 md:px-6 py-4 shadow-[4px_0_12px_rgba(0,0,0,0.02)]">
                 <div class="flex items-center gap-4">
                   {#if row.product.image_small_url}
                     <img
@@ -72,7 +72,7 @@
                     </div>
                   {/if}
                   <div class="flex flex-col min-w-0">
-                    <span class="font-medium text-slate-900 truncate">
+                    <span class="font-medium text-slate-900 truncate max-w-[120px] md:max-w-none">
                       {row.product.product_name || 'Unnamed Product'}
                     </span>
                     <span class="text-xs text-slate-500 truncate mt-0.5">
