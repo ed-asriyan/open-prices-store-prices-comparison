@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#2563eb"/>
+  <!-- Shopping cart body -->
+  <path d="M120 160h32l48 176h192l40-128H192" fill="none" stroke="white" stroke-width="28" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Cart wheels -->
+  <circle cx="224" cy="376" r="24" fill="white"/>
+  <circle cx="336" cy="376" r="24" fill="white"/>
+  <!-- Price tag / comparison tick -->
+  <path d="M300 224 l28 28 l52-52" fill="none" stroke="#86efac" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
