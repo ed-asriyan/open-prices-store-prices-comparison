@@ -1,20 +1,47 @@
 <script>
+  import { onMount } from 'svelte';
   import { Store, Loader2 } from 'lucide-svelte';
   import StoreSearch from './lib/StoreSearch.svelte';
   import SelectedStores from './lib/SelectedStores.svelte';
   import StatusMessage from './lib/StatusMessage.svelte';
   import ComparisonTable from './lib/ComparisonTable.svelte';
-  import { fetchStorePrices, fetchProductDetailsBatch } from './api.js';
+  import { fetchStorePrices, fetchProductDetailsBatch, lookupStoresByIds } from './api.js';
 
   let selectedStores = [];
   let comparisonData = null;
   let totalExpected = 0;
   let status = { isLoading: false, text: '', error: null };
 
+  function syncUrl(stores) {
+    const url = new URL(window.location.href);
+    if (stores.length > 0) {
+      url.searchParams.set('stores', stores.map(s => s.id).join(','));
+    } else {
+      url.searchParams.delete('stores');
+    }
+    history.replaceState(null, '', url.toString());
+  }
+
+  onMount(async () => {
+    const ids = new URLSearchParams(window.location.search).get('stores');
+    if (!ids) return;
+    const storeIds = ids.split(',').filter(Boolean);
+    if (storeIds.length === 0) return;
+    status = { isLoading: true, text: 'Restoring stores from link…', error: null };
+    try {
+      selectedStores = await lookupStoresByIds(storeIds);
+      status = { isLoading: false, text: '', error: null };
+    } catch (err) {
+      console.error(err);
+      status = { isLoading: false, text: '', error: 'Could not restore stores from the shared link.' };
+    }
+  });
+
   function addStore(event) {
     const store = event.detail;
     if (!selectedStores.find(s => s.id === store.id)) {
       selectedStores = [...selectedStores, store];
+      syncUrl(selectedStores);
     }
     comparisonData = null;
   }
@@ -22,6 +49,7 @@
   function removeStore(event) {
     const storeId = event.detail;
     selectedStores = selectedStores.filter(s => s.id !== storeId);
+    syncUrl(selectedStores);
     comparisonData = null;
   }
 

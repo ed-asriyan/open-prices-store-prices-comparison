@@ -58,14 +58,8 @@ async function fetchWithRetry(url) {
 const pricesQueue = new RateLimitQueue();
 const productQueue = new RateLimitQueue();
 
-export async function searchLocations(query) {
-  const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=10`
-  );
-  if (!res.ok) throw new Error('Failed to fetch locations');
-  const data = await res.json();
-
-  return data.map(item => ({
+function mapNominatimItem(item) {
+  return {
     id: `${item.osm_type.toUpperCase()}-${item.osm_id}`,
     osm_id: item.osm_id,
     osm_type: item.osm_type.toUpperCase(),
@@ -78,7 +72,39 @@ export async function searchLocations(query) {
     city:
       item.address &&
       (item.address.city || item.address.town || item.address.village),
-  }));
+  };
+}
+
+export async function searchLocations(query) {
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=10`
+  );
+  if (!res.ok) throw new Error('Failed to fetch locations');
+  const data = await res.json();
+  return data.map(mapNominatimItem);
+}
+
+/**
+ * Resolve store objects from a list of store IDs (e.g. ['NODE-12345', 'WAY-67890'])
+ * using the Nominatim lookup endpoint.
+ * @param {string[]} storeIds
+ * @returns {Promise<Array>}
+ */
+export async function lookupStoresByIds(storeIds) {
+  const typePrefix = { NODE: 'N', WAY: 'W', RELATION: 'R' };
+  const osmIds = storeIds.map(id => {
+    const dash = id.indexOf('-');
+    const type = id.slice(0, dash);
+    const osmId = id.slice(dash + 1);
+    return `${typePrefix[type] ?? type[0]}${osmId}`;
+  }).join(',');
+
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/lookup?osm_ids=${osmIds}&format=json&addressdetails=1`
+  );
+  if (!res.ok) throw new Error('Failed to look up stores');
+  const data = await res.json();
+  return data.map(mapNominatimItem);
 }
 
 /**
