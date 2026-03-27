@@ -73,38 +73,44 @@
         })
       );
 
-      // 2. Find products present in ALL selected stores
-      status = { isLoading: true, text: 'Calculating intersections...', error: null };
+      // 2. Collect union of all barcodes, flagging which appear in every store
+      status = { isLoading: true, text: 'Calculating products...', error: null };
 
-      const firstStoreMap = storesData[0].priceMap;
-      const intersectingBarcodes = Object.keys(firstStoreMap).filter(barcode =>
-        storesData.every(s => s.priceMap[barcode] !== undefined)
+      const allBarcodes = [...new Set(storesData.flatMap(s => Object.keys(s.priceMap)))];
+      const intersectingSet = new Set(
+        allBarcodes.filter(barcode => storesData.every(s => s.priceMap[barcode] !== undefined))
       );
 
-      if (intersectingBarcodes.length === 0) {
+      if (allBarcodes.length === 0) {
         status = {
           isLoading: false,
           text: '',
-          error: 'No intersecting products found between these stores based on current Open Prices data.',
+          error: 'No products found for the selected stores in the Open Prices database.',
         };
         return;
       }
 
-      // 3. Build price lookup per barcode upfront
+      // 3. Build price lookup per barcode upfront (undefined for missing stores)
       const pricesByBarcode = {};
-      intersectingBarcodes.forEach(barcode => {
+      allBarcodes.forEach(barcode => {
         const prices = {};
-        storesData.forEach(s => { prices[s.storeId] = s.priceMap[barcode]; });
+        storesData.forEach(s => { prices[s.storeId] = s.priceMap[barcode] ?? null; });
         pricesByBarcode[barcode] = prices;
       });
 
+      // intersection first, then partial — each group preserves original order
+      const sortedBarcodes = [
+        ...allBarcodes.filter(b => intersectingSet.has(b)),
+        ...allBarcodes.filter(b => !intersectingSet.has(b)),
+      ];
+
       // 4. Stream results – initialize empty array so table renders immediately
-      totalExpected = intersectingBarcodes.length;
+      totalExpected = sortedBarcodes.length;
       comparisonData = [];
 
       // 5. Fetch product details progressively; UI updates after each item
       await fetchProductDetailsBatch(
-        intersectingBarcodes,
+        sortedBarcodes,
         (current, total) => {
           status = {
             isLoading: true,
@@ -115,7 +121,12 @@
         (barcode, product) => {
           comparisonData = [
             ...comparisonData,
-            { barcode, product, prices: pricesByBarcode[barcode] },
+            {
+              barcode,
+              product,
+              prices: pricesByBarcode[barcode],
+              inAllStores: intersectingSet.has(barcode),
+            },
           ];
         }
       );

@@ -8,7 +8,8 @@
   export let isLoading = false;
 
   function getMinPrice(prices) {
-    return Math.min(...Object.values(prices).map(p => parseFloat(p.price)));
+    const vals = Object.values(prices).filter(p => p !== null).map(p => parseFloat(p.price));
+    return vals.length ? Math.min(...vals) : null;
   }
 
   function formatPrice(priceData) {
@@ -25,9 +26,9 @@
       <h2 class="font-semibold text-slate-900 flex items-center gap-2">
         <CheckCircle2 class="w-5 h-5 text-green-500" />
         {#if isLoading && totalExpected > 0}
-          Loaded {comparisonData.length} of {totalExpected} common items
+          Loaded {comparisonData.length} of {totalExpected} products
         {:else}
-          Found {comparisonData.length} common items
+          {comparisonData.length} products · {comparisonData.filter(r => r.inAllStores).length} in all stores
         {/if}
       </h2>
       {#if isLoading}
@@ -55,9 +56,16 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          {#each comparisonData as row (row.barcode)}
+          {#each comparisonData as row, i (row.barcode)}
             {@const minPrice = getMinPrice(row.prices)}
-            <tr in:fly={{ y: 10, duration: 180 }} class="hover:bg-slate-50/50 transition-colors">
+            {#if i > 0 && !row.inAllStores && comparisonData[i - 1].inAllStores}
+              <tr>
+                <td colspan={selectedStores.length + 1} class="px-6 py-2 bg-slate-50 border-y border-slate-200">
+                  <span class="text-xs font-semibold uppercase tracking-wide text-slate-400">Only in some stores</span>
+                </td>
+              </tr>
+            {/if}
+            <tr in:fly={{ y: 10, duration: 180 }} class="hover:bg-slate-50/50 transition-colors {row.inAllStores ? '' : 'opacity-75'}">
               <td class="md:sticky left-0 z-10 bg-white border-r border-slate-200 px-4 md:px-6 py-4 shadow-[4px_0_12px_rgba(0,0,0,0.02)]">
                 <div class="flex items-center gap-4">
                   {#if row.product.image_small_url}
@@ -92,20 +100,24 @@
 
               {#each selectedStores as store (store.id)}
                 {@const priceData = row.prices[store.id]}
-                {@const priceVal = parseFloat(priceData.price)}
-                {@const isLowest = priceVal === minPrice && selectedStores.length > 1}
+                {@const priceVal = priceData ? parseFloat(priceData.price) : null}
+                {@const isLowest = priceVal !== null && priceVal === minPrice && selectedStores.length > 1}
                 <td class="px-6 py-4">
-                  <div class="flex flex-col">
-                    <span class="text-base font-medium flex items-center gap-2 {isLowest ? 'text-green-700' : 'text-slate-900'}">
-                      {formatPrice(priceData)}
-                      {#if isLowest}
-                        <TrendingDown class="w-4 h-4 text-green-600" />
-                      {/if}
-                    </span>
-                    <span class="text-xs text-slate-400 mt-1">
-                      {new Date(priceData.date).toLocaleDateString()}
-                    </span>
-                  </div>
+                  {#if priceData}
+                    <div class="flex flex-col">
+                      <span class="text-base font-medium flex items-center gap-2 {isLowest ? 'text-green-700' : 'text-slate-900'}">
+                        {formatPrice(priceData)}
+                        {#if isLowest}
+                          <TrendingDown class="w-4 h-4 text-green-600" />
+                        {/if}
+                      </span>
+                      <span class="text-xs text-slate-400 mt-1">
+                        {new Date(priceData.date).toLocaleDateString()}
+                      </span>
+                    </div>
+                  {:else}
+                    <span class="text-slate-300 text-lg font-light">—</span>
+                  {/if}
                 </td>
               {/each}
             </tr>
