@@ -150,7 +150,7 @@
     <header class="mb-8">
       <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
         <Store class="w-8 h-8 text-blue-600" />
-        Grocery Price Intersection
+        Grocery Price Comparison
       </h1>
       <p class="text-slate-500 mt-2 max-w-2xl">
         Compare real-time price overlaps between specific grocery stores using data entirely sourced from the Open Food Facts API network.
