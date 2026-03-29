@@ -146,10 +146,6 @@ export async function lookupStoresByIds(storeIds) {
  * @returns {Promise<Array>}
  */
 export async function fetchStorePrices(store) {
-  const cacheKey = `prices:${store.osm_type}:${store.osm_id}`;
-  const cached = cacheGet(cacheKey);
-  if (cached) return cached;
-
   return pricesQueue.enqueue(async () => {
     const res = await fetchWithRetry(
       `${OFF_PRICES_API}/prices?location_osm_id=${store.osm_id}&location_osm_type=${store.osm_type}&size=1000`
@@ -158,10 +154,8 @@ export async function fetchStorePrices(store) {
     const data = await res.json();
     if (!data.items || data.items.length === 0) {
       console.warn(`Store ${store.name} has no prices in the database.`);
-      cacheSet(cacheKey, []);
       return [];
     }
-    cacheSet(cacheKey, data.items);
     return data.items;
   });
 }
