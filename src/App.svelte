@@ -11,8 +11,10 @@
   let comparisonData = null;
   let totalExpected = 0;
   let status = { isLoading: false, text: '', error: null };
+  let storeHistory = [];
 
   const LS_KEY = 'selected_stores';
+  const LS_HISTORY_KEY = 'store_history';
 
   function saveStoresToLocalStorage(stores) {
     try {
@@ -33,6 +35,28 @@
     }
   }
 
+  function saveStoreHistoryToLocalStorage(history) {
+    try {
+      if (history.length > 0) {
+        localStorage.setItem(LS_HISTORY_KEY, JSON.stringify(history));
+      } else {
+        localStorage.removeItem(LS_HISTORY_KEY);
+      }
+    } catch {}
+  }
+
+  function loadStoreHistoryFromLocalStorage() {
+    try {
+      const raw = localStorage.getItem(LS_HISTORY_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(store => store && store.id);
+    } catch {
+      return [];
+    }
+  }
+
   function syncUrl(stores) {
     const url = new URL(window.location.href);
     if (stores.length > 0) {
@@ -44,6 +68,8 @@
   }
 
   onMount(async () => {
+    storeHistory = loadStoreHistoryFromLocalStorage();
+
     const urlParam = new URLSearchParams(window.location.search).get('stores');
     const storeIds = urlParam
       ? urlParam.split(',').filter(Boolean)      // URL takes priority
@@ -63,14 +89,28 @@
     }
   });
 
+  function addStoreToHistory(store) {
+    storeHistory = [store, ...storeHistory.filter(s => s.id !== store.id)];
+    saveStoreHistoryToLocalStorage(storeHistory);
+  }
+
   function addStore(event) {
     const store = event.detail;
+
+    addStoreToHistory(store);
+
     if (!selectedStores.find(s => s.id === store.id)) {
       selectedStores = [...selectedStores, store];
       syncUrl(selectedStores);
       saveStoresToLocalStorage(selectedStores);
     }
     comparisonData = null;
+  }
+
+  function removeStoreFromHistory(event) {
+    const storeId = event.detail;
+    storeHistory = storeHistory.filter(s => s.id !== storeId);
+    saveStoreHistoryToLocalStorage(storeHistory);
   }
 
   function removeStore(event) {
@@ -188,7 +228,7 @@
     <!-- Store Selector Card -->
     <section class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-6">
       <div class="grid md:grid-cols-2 gap-8">
-        <StoreSearch on:add={addStore} />
+        <StoreSearch historyStores={storeHistory} on:add={addStore} on:removehistory={removeStoreFromHistory} />
         <SelectedStores stores={selectedStores} on:remove={removeStore} />
       </div>
 
