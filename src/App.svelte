@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { Store, Loader2 } from 'lucide-svelte';
+  import { Store, Loader2, Share2, Check } from 'lucide-svelte';
   import StoreSearch from './lib/StoreSearch.svelte';
   import SelectedStores from './lib/SelectedStores.svelte';
   import StatusMessage from './lib/StatusMessage.svelte';
@@ -209,20 +209,57 @@
       };
     }
   }
+
+  let shareCopied = false;
+
+  async function share() {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Grocery Price Comparison', url });
+      } catch {
+        // user cancelled – do nothing
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        shareCopied = true;
+        setTimeout(() => { shareCopied = false; }, 2000);
+      } catch {
+        // clipboard unavailable – do nothing
+      }
+    }
+  }
 </script>
 
 <div class="min-h-screen bg-slate-50 text-slate-900 p-4 md:p-8 font-sans">
   <div class="max-w-7xl mx-auto space-y-6">
 
     <!-- Header -->
-    <header class="mb-8">
-      <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
-        <Store class="w-8 h-8 text-blue-600" />
-        Grocery Price Comparison
-      </h1>
-      <p class="text-slate-500 mt-2 max-w-2xl">
-        Compare real-time price overlaps between specific grocery stores using data entirely sourced from the Open Food Facts API network.
-      </p>
+    <header class="mb-8 flex items-start justify-between gap-4">
+      <div>
+        <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-slate-900 flex items-center gap-3">
+          <Store class="w-8 h-8 text-blue-600" />
+          Grocery Price Comparison
+        </h1>
+        <p class="text-slate-500 mt-2 max-w-2xl">
+          Compare real-time price overlaps between specific grocery stores using data entirely sourced from the Open Food Facts API network.
+        </p>
+      </div>
+      <button
+        on:click={share}
+        title="Share this page"
+        class="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-all
+          {shareCopied
+            ? 'bg-green-100 text-green-700'
+            : 'bg-white border border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600 shadow-sm hover:shadow'}"
+      >
+        {#if shareCopied}
+          <Check class="w-4 h-4" /> Copied!
+        {:else}
+          <Share2 class="w-4 h-4" /> Share
+        {/if}
+      </button>
     </header>
 
     <!-- Store Selector Card -->
